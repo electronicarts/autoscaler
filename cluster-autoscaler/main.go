@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -71,6 +72,7 @@ var (
 	cloudConfig            = flag.String("cloud-config", "", "The path to the cloud provider configuration file.  Empty string for no configuration file.")
 	configMapName          = flag.String("configmap", "", "The name of the ConfigMap containing settings used for dynamic reconfiguration. Empty string for no ConfigMap.")
 	namespace              = flag.String("namespace", "kube-system", "Namespace in which cluster-autoscaler run. If a --configmap flag is also provided, ensure that the configmap exists in this namespace before CA runs.")
+	namespaceFilter        = flag.String("namespace-filter", "", "Namespace filter used when scanning unschedulable pods.  Leave blank to scan all namespaces.")
 	nodeGroupAutoDiscovery = flag.String("node-group-auto-discovery", "", "One or more definition(s) of node group auto-discovery. A definition is expressed `<name of discoverer per cloud provider>:[<key>[=<value>]]`. Only the `aws` cloud provider is currently supported. The only valid discoverer for it is `asg` and the valid key is `tag`. For example, specifying `--cloud-provider aws` and `--node-group-auto-discovery asg:tag=cluster-autoscaler/auto-discovery/enabled,kubernetes.io/cluster/<YOUR CLUSTER NAME>` results in ASGs tagged with `cluster-autoscaler/auto-discovery/enabled` and `kubernetes.io/cluster/<YOUR CLUSTER NAME>` to be considered as target node groups")
 	scaleDownEnabled       = flag.Bool("scale-down-enabled", true, "Should CA scale down the cluster")
 	scaleDownDelay         = flag.Duration("scale-down-delay", 10*time.Minute,
@@ -137,6 +139,7 @@ func createAutoscalerOptions() core.AutoscalerOptions {
 		WriteStatusConfigMap:             *writeStatusConfigMapFlag,
 		BalanceSimilarNodeGroups:         *balanceSimilarNodeGroupsFlag,
 		ConfigNamespace:                  *namespace,
+		NamespaceFilter:                  *namespaceFilter,
 		ClusterName:                      *clusterName,
 		NodeAutoprovisioningEnabled:      *nodeAutoprovisioningEnabled,
 		MaxAutoprovisionedNodeGroupCount: *maxAutoprovisionedNodeGroupCount,
@@ -205,7 +208,13 @@ func run(healthCheck *metrics.HealthCheck) {
 		glog.Fatalf("Failed to create predicate checker: %v", err)
 	}
 	listerRegistryStopChannel := make(chan struct{})
-	listerRegistry := kube_util.NewListerRegistryWithDefaultListers(kubeClient, listerRegistryStopChannel)
+
+	var listerRegistry kube_util.ListerRegistry
+	if len(opts.NamespaceFilter) > 0 {
+		listerRegistry = kube_util.NewListerRegistryWithFilteredListers(kubeClient, opts.NamespaceFilter, listerRegistryStopChannel)
+	} else {
+		listerRegistry = kube_util.NewListerRegistryWithDefaultListers(kubeClient, listerRegistryStopChannel)
+	}
 	autoscaler, err := core.NewAutoscaler(opts, predicateChecker, kubeClient, kubeEventRecorder, listerRegistry)
 	if err != nil {
 		glog.Fatalf("Failed to create autoscaler: %v", err)
@@ -279,6 +288,12 @@ func main() {
 		_, err = kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
 		if err != nil {
 			glog.Fatalf("Failed to get nodes from apiserver: %v", err)
+		}
+
+
+		lockName := "cluster-autoscaler"
+		if len(*namespaceFilter) > 0 {
+			lockName = fmt.Sprintf("%s-%s", lockName, *namespaceFilter)
 		}
 
 		lock, err := resourcelock.New(

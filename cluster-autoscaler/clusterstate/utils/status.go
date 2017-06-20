@@ -32,8 +32,6 @@ import (
 )
 
 const (
-	// StatusConfigMapName is the name of ConfigMap with status.
-	StatusConfigMapName = "cluster-autoscaler-status"
 	// ConfigMapLastUpdatedKey is the name of annotation informing about status ConfigMap last update.
 	ConfigMapLastUpdatedKey = "cluster-autoscaler.kubernetes.io/last-updated"
 )
@@ -59,14 +57,22 @@ func (ler *LogEventRecorder) Eventf(eventtype, reason, message string, args ...i
 	}
 }
 
+func GetStatusConfigMapName(namespaceFilter string) (string) {
+	configMapName := "cluster-autoscaler-status"
+	if len(namespaceFilter) > 0 {
+		configMapName = fmt.Sprintf("%s-%s", configMapName, namespaceFilter)
+	}
+	return configMapName
+}
+
 // NewStatusMapRecorder creates a LogEventRecorder creating events on status configmap.
 // If the configmap doesn't exist it will be created (with 'Initializing' status).
 // If active == false the map will not be created and no events will be recorded.
-func NewStatusMapRecorder(kubeClient kube_client.Interface, namespace string, recorder record.EventRecorder, active bool) (*LogEventRecorder, error) {
+func NewStatusMapRecorder(kubeClient kube_client.Interface, namespace string, namespaceFilter string, recorder record.EventRecorder, active bool) (*LogEventRecorder, error) {
 	var mapObj runtime.Object
 	var err error
 	if active {
-		mapObj, err = WriteStatusConfigMap(kubeClient, namespace, "Initializing", nil)
+		mapObj, err = WriteStatusConfigMap(kubeClient, namespace, namespaceFilter, "Initializing", nil)
 		if err != nil {
 			return nil, errors.New("Failed to init status ConfigMap")
 		}
@@ -81,14 +87,16 @@ func NewStatusMapRecorder(kubeClient kube_client.Interface, namespace string, re
 // WriteStatusConfigMap writes updates status ConfigMap with a given message or creates a new
 // ConfigMap if it doesn't exist. If logRecorder is passed and configmap update is successfull
 // logRecorder's internal reference will be updated.
-func WriteStatusConfigMap(kubeClient kube_client.Interface, namespace string, msg string, logRecorder *LogEventRecorder) (*apiv1.ConfigMap, error) {
+func WriteStatusConfigMap(kubeClient kube_client.Interface, namespace string, namespaceFilter string, msg string, logRecorder *LogEventRecorder) (*apiv1.ConfigMap, error) {
 	statusUpdateTime := time.Now()
 	statusMsg := fmt.Sprintf("Cluster-autoscaler status at %v:\n%v", statusUpdateTime, msg)
 	var configMap *apiv1.ConfigMap
 	var getStatusError, writeStatusError error
 	var errMsg string
 	maps := kubeClient.CoreV1().ConfigMaps(namespace)
-	configMap, getStatusError = maps.Get(StatusConfigMapName, metav1.GetOptions{})
+
+	configMapName := GetStatusConfigMapName(namespaceFilter)
+	configMap, getStatusError = maps.Get(configMapName, metav1.GetOptions{})
 	if getStatusError == nil {
 		configMap.Data["status"] = statusMsg
 		if configMap.ObjectMeta.Annotations == nil {
@@ -100,7 +108,7 @@ func WriteStatusConfigMap(kubeClient kube_client.Interface, namespace string, ms
 		configMap = &apiv1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
-				Name:      StatusConfigMapName,
+				Name:      configMapName,
 				Annotations: map[string]string{
 					ConfigMapLastUpdatedKey: fmt.Sprintf("%v", statusUpdateTime),
 				},
@@ -111,16 +119,16 @@ func WriteStatusConfigMap(kubeClient kube_client.Interface, namespace string, ms
 		}
 		configMap, writeStatusError = maps.Create(configMap)
 	} else {
-		errMsg = fmt.Sprintf("Failed to retrieve status configmap for update: %v", getStatusError)
+		errMsg = fmt.Sprintf("Failed to retrieve status configmap %s for update: %v", configMapName, getStatusError)
 	}
 	if writeStatusError != nil {
-		errMsg = fmt.Sprintf("Failed to write status configmap: %v", writeStatusError)
+		errMsg = fmt.Sprintf("Failed to write status configmap %s: %v", configMapName, writeStatusError)
 	}
 	if errMsg != "" {
 		glog.Error(errMsg)
 		return nil, errors.New(errMsg)
 	}
-	glog.V(8).Infof("Succesfully wrote status configmap with body \"%v\"", statusMsg)
+	glog.V(8).Infof("Succesfully wrote status configmap %s with body \"%v\"", configMapName, statusMsg)
 	// Having this as a side-effect is somewhat ugly
 	// But it makes error handling easier, as we get a free retry each loop
 	if logRecorder != nil {
@@ -130,11 +138,12 @@ func WriteStatusConfigMap(kubeClient kube_client.Interface, namespace string, ms
 }
 
 // DeleteStatusConfigMap deletes status configmap
-func DeleteStatusConfigMap(kubeClient kube_client.Interface, namespace string) error {
+func DeleteStatusConfigMap(kubeClient kube_client.Interface, namespace string, namespaceFilter string) error {
 	maps := kubeClient.CoreV1().ConfigMaps(namespace)
-	err := maps.Delete(StatusConfigMapName, &metav1.DeleteOptions{})
+	configMapName := GetStatusConfigMapName(namespaceFilter)
+	err := maps.Delete(configMapName, &metav1.DeleteOptions{})
 	if err != nil {
-		glog.Error("Failed to delete status configmap")
+		glog.Errorf("Failed to delete status configmap %s", configMapName)
 	}
 	return err
 }

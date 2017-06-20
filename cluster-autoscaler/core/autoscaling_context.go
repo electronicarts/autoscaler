@@ -105,6 +105,8 @@ type AutoscalingOptions struct {
 	BalanceSimilarNodeGroups bool
 	// ConfigNamespace is the namespace cluster-autoscaler is running in and all related configmaps live in
 	ConfigNamespace string
+	// NamespaceFilter limits scanning for pods to be within this namespace
+	NamespaceFilter string
 	// ClusterName if available
 	ClusterName string
 	// NodeAutoprovisioningEnabled tells whether the node auto-provisioning is enabled for this cluster.
