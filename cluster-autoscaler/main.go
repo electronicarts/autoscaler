@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -67,6 +68,7 @@ var (
 	cloudConfig             = flag.String("cloud-config", "", "The path to the cloud provider configuration file.  Empty string for no configuration file.")
 	configMapName           = flag.String("configmap", "", "The name of the ConfigMap containing settings used for dynamic reconfiguration. Empty string for no ConfigMap.")
 	namespace               = flag.String("namespace", "kube-system", "Namespace in which cluster-autoscaler run. If a --configmap flag is also provided, ensure that the configmap exists in this namespace before CA runs.")
+	namespaceFilter         = flag.String("namespace-filter", "", "Namespace filter used when scanning unschedulable pods.  Leave blank to scan all namespaces.")
 	nodeGroupAutoDiscovery  = flag.String("node-group-auto-discovery", "", "One or more definition(s) of node group auto-discovery. A definition is expressed `<name of discoverer per cloud provider>:[<key>[=<value>]]`. Only the `aws` cloud provider is currently supported. The only valid discoverer for it is `asg` and the valid key is `tag`. For example, specifying `--cloud-provider aws` and `--node-group-auto-discovery asg:tag=cluster-autoscaler/auto-discovery/enabled,kubernetes.io/cluster/<YOUR CLUSTER NAME>` results in ASGs tagged with `cluster-autoscaler/auto-discovery/enabled` and `kubernetes.io/cluster/<YOUR CLUSTER NAME>` to be considered as target node groups")
 	verifyUnschedulablePods = flag.Bool("verify-unschedulable-pods", true,
 		"If enabled CA will ensure that each pod marked by Scheduler as unschedulable actually can't be scheduled on any node."+
@@ -129,6 +131,7 @@ func createAutoscalerOptions() core.AutoscalerOptions {
 		WriteStatusConfigMap:          *writeStatusConfigMapFlag,
 		BalanceSimilarNodeGroups:      *balanceSimilarNodeGroupsFlag,
 		ConfigNamespace:               *namespace,
+		NamespaceFilter:               *namespaceFilter,
 	}
 
 	configFetcherOpts := dynamic.ConfigFetcherOptions{
@@ -181,7 +184,13 @@ func run(healthCheck *metrics.HealthCheck) {
 		glog.Fatalf("Failed to create predicate checker: %v", err)
 	}
 	listerRegistryStopChannel := make(chan struct{})
-	listerRegistry := kube_util.NewListerRegistryWithDefaultListers(kubeClient, listerRegistryStopChannel)
+
+	var listerRegistry kube_util.ListerRegistry
+	if len(opts.NamespaceFilter) > 0 {
+		listerRegistry = kube_util.NewListerRegistryWithFilteredListers(kubeClient, opts.NamespaceFilter, listerRegistryStopChannel)
+	} else {
+		listerRegistry = kube_util.NewListerRegistryWithDefaultListers(kubeClient, listerRegistryStopChannel)
+	}
 	autoscaler, err := core.NewAutoscaler(opts, predicateChecker, kubeClient, kubeEventRecorder, listerRegistry)
 	if err != nil {
 		glog.Fatal("Failed to create autoscaler: %v", err)
@@ -257,11 +266,18 @@ func main() {
 			glog.Fatalf("Failed to get nodes from apiserver: %v", err)
 		}
 
+		// name the lock with the namespace filter if it is set so that multiple locks can be held
+		// this is for the case when multiple CA are running, each scanning unschedulable pods in a namespace and each holding its own lock
+		lockName := "cluster-autoscaler"
+		if len(*namespaceFilter) > 0 {
+			lockName = fmt.Sprintf("%s-%s", lockName, *namespaceFilter)
+		}
+
 		kube_leaderelection.RunOrDie(kube_leaderelection.LeaderElectionConfig{
 			Lock: &resourcelock.EndpointsLock{
 				EndpointsMeta: metav1.ObjectMeta{
 					Namespace: *namespace,
-					Name:      "cluster-autoscaler",
+					Name:      lockName,
 				},
 				Client: kubeClient.Core(),
 				LockConfig: resourcelock.ResourceLockConfig{

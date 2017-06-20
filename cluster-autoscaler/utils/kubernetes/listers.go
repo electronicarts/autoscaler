@@ -77,6 +77,19 @@ func NewListerRegistryWithDefaultListers(kubeClient client.Interface, stopChanne
 		unschedulablePodLister, podDisruptionBudgetLister, daemonSetLister)
 }
 
+// NewListerRegistryWithDefaultListers returns a registry filled with listers restricted to a namespace
+// Only unschedulable pods is filtered - filtering scheduled pods breaks estimation calculations and fit predicate checks
+func NewListerRegistryWithFilteredListers(kubeClient client.Interface, namespace string, stopChannel <-chan struct{}) ListerRegistry {
+	unschedulablePodLister := NewUnschedulablePodInNamespaceLister(kubeClient, namespace, stopChannel)
+	scheduledPodLister := NewScheduledPodLister(kubeClient, stopChannel)
+	readyNodeLister := NewReadyNodeLister(kubeClient, stopChannel)
+	allNodeLister := NewAllNodeLister(kubeClient, stopChannel)
+	podDisruptionBudgetLister := NewPodDisruptionBudgetLister(kubeClient, stopChannel)
+	daemonSetLister := NewDaemonSetLister(kubeClient, stopChannel)
+	return NewListerRegistry(allNodeLister, readyNodeLister, scheduledPodLister,
+		unschedulablePodLister, podDisruptionBudgetLister, daemonSetLister)
+}
+
 // AllNodeLister returns the AllNodeLister registered to this registry
 func (r listerRegistryImpl) AllNodeLister() *AllNodeLister {
 	return r.allNodeLister
