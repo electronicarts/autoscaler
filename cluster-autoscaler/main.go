@@ -33,7 +33,6 @@ import (
 	"k8s.io/autoscaler/cluster-autoscaler/config/dynamic"
 	"k8s.io/autoscaler/cluster-autoscaler/core"
 	"k8s.io/autoscaler/cluster-autoscaler/estimator"
-	"k8s.io/autoscaler/cluster-autoscaler/expander"
 	"k8s.io/autoscaler/cluster-autoscaler/metrics"
 	"k8s.io/autoscaler/cluster-autoscaler/simulator"
 	"k8s.io/autoscaler/cluster-autoscaler/utils/errors"
@@ -47,6 +46,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/pflag"
+	"k8s.io/autoscaler/cluster-autoscaler/expander"
 )
 
 // MultiStringFlag is a flag for passing multiple parameters using same flag
@@ -290,7 +290,8 @@ func main() {
 			glog.Fatalf("Failed to get nodes from apiserver: %v", err)
 		}
 
-
+		// name the lock with the namespace filter if it is set so that multiple locks can be held
+		// this is for the case when multiple CA are running, each scanning unschedulable pods in a namespace and each holding its own lock
 		lockName := "cluster-autoscaler"
 		if len(*namespaceFilter) > 0 {
 			lockName = fmt.Sprintf("%s-%s", lockName, *namespaceFilter)
