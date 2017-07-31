@@ -18,6 +18,7 @@ package core
 
 import (
 	"flag"
+	"fmt"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -131,9 +132,17 @@ func (a *StaticAutoscaler) RunOnce(currentTime time.Time) errors.AutoscalerError
 	// Update status information when the loop is done (regardless of reason)
 	defer func() {
 		if autoscalingContext.WriteStatusConfigMap {
-			status := a.ClusterStateRegistry.GetStatus(time.Now())
+			var statusMsg string
+			statusUpdateTime := time.Now()
+			status := a.ClusterStateRegistry.GetStatus(statusUpdateTime)
+			if autoscalingContext.StatusConfigMapFormat == "json" {
+				statusMsg = status.GetJSONString()
+			} else {
+				statusMsg = fmt.Sprintf("Cluster-autoscaler status at %v:\n%v", statusUpdateTime, status.GetReadableString())
+			}
+
 			utils.WriteStatusConfigMap(autoscalingContext.ClientSet, autoscalingContext.ConfigNamespace,
-				status.GetReadableString(), a.AutoscalingContext.LogRecorder)
+				statusMsg, a.AutoscalingContext.LogRecorder)
 		}
 	}()
 	if !a.ClusterStateRegistry.IsClusterHealthy() {

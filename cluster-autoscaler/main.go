@@ -99,6 +99,7 @@ var (
 		"Type of node group expander to be used in scale up. Available values: ["+strings.Join(expander.AvailableExpanders, ",")+"]")
 
 	writeStatusConfigMapFlag     = flag.Bool("write-status-configmap", true, "Should CA write status information to a configmap")
+	statusConfigMapFormat        = flag.String("status-configmap-format", "text", "Format that status information should be written in. Allowed values: text, json")
 	maxInactivityTimeFlag        = flag.Duration("max-inactivity", 10*time.Minute, "Maximum time from last recorded autoscaler activity before automatic restart")
 	maxFailingTimeFlag           = flag.Duration("max-failing-time", 15*time.Minute, "Maximum time from last recorded successful autoscaler run before automatic restart")
 	balanceSimilarNodeGroupsFlag = flag.Bool("balance-similar-node-groups", false, "Detect similar node groups and balance the number of nodes between them")
@@ -127,6 +128,7 @@ func createAutoscalerOptions() core.AutoscalerOptions {
 		ScaleDownUtilizationThreshold: *scaleDownUtilizationThreshold,
 		VerifyUnschedulablePods:       *verifyUnschedulablePods,
 		WriteStatusConfigMap:          *writeStatusConfigMapFlag,
+		StatusConfigMapFormat:         *statusConfigMapFormat,
 		BalanceSimilarNodeGroups:      *balanceSimilarNodeGroupsFlag,
 		ConfigNamespace:               *namespace,
 	}

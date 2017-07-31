@@ -81,9 +81,8 @@ func NewStatusMapRecorder(kubeClient kube_client.Interface, namespace string, re
 // WriteStatusConfigMap writes updates status ConfigMap with a given message or creates a new
 // ConfigMap if it doesn't exist. If logRecorder is passed and configmap update is successfull
 // logRecorder's internal reference will be updated.
-func WriteStatusConfigMap(kubeClient kube_client.Interface, namespace string, msg string, logRecorder *LogEventRecorder) (*apiv1.ConfigMap, error) {
+func WriteStatusConfigMap(kubeClient kube_client.Interface, namespace string, statusMsg string, logRecorder *LogEventRecorder) (*apiv1.ConfigMap, error) {
 	statusUpdateTime := time.Now()
-	statusMsg := fmt.Sprintf("Cluster-autoscaler status at %v:\n%v", statusUpdateTime, msg)
 	var configMap *apiv1.ConfigMap
 	var getStatusError, writeStatusError error
 	var errMsg string
