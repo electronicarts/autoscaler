@@ -19,6 +19,8 @@ package api
 import (
 	"bytes"
 	"fmt"
+	"encoding/json"
+	"github.com/golang/glog"
 )
 
 // GetConditionByType gets condition by type.
@@ -89,4 +91,13 @@ func (status ClusterAutoscalerStatus) GetReadableString() string {
 		buffer.WriteString("\n")
 	}
 	return buffer.String()
+}
+
+func (status ClusterAutoscalerStatus) GetJSONString() string {
+	statusJson, err := json.Marshal(status)
+	if err != nil {
+		glog.Errorf("Failed to encode status as JSON: %v", err)
+		return fmt.Sprintf("Failed to encode status as JSON.\n%s", status.GetReadableString())
+	}
+	return string(statusJson[:])
 }
