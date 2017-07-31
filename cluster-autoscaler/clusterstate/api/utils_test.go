@@ -41,6 +41,11 @@ func TestGetStringForEmptyStatus(t *testing.T) {
 	assert.Regexp(t, regexp.MustCompile("\\s*Health:\\s*<unknown>"), empty.GetReadableString())
 }
 
+func TestGetJSONStringForEmptyStatus(t *testing.T) {
+	var empty ClusterAutoscalerStatus
+	assert.Equal(t, "{}", empty.GetJSONString())
+}
+
 func TestGetStringNothingGoingOn(t *testing.T) {
 	var status ClusterAutoscalerStatus
 	healthCondition, scaleUpCondition := prepareConditions()
