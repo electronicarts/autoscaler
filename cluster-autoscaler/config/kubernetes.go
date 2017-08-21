@@ -45,7 +45,7 @@ func getConfigOverrides(uri *url.URL) (*kube_client_cmd.ConfigOverrides, error) 
 }
 
 // GetKubeClientConfig returns rest client configuration based on the passed url.
-func GetKubeClientConfig(uri *url.URL) (*kube_rest.Config, error) {
+func GetKubeClientConfig(uri *url.URL, maxQPS int, burst int ) (*kube_rest.Config, error) {
 	var (
 		kubeConfig *kube_rest.Config
 		err        error
@@ -110,6 +110,9 @@ func GetKubeClientConfig(uri *url.URL) (*kube_rest.Config, error) {
 			kubeConfig.BearerToken = string(contents)
 		}
 	}
+
+	kubeConfig.QPS = float32(maxQPS)
+	kubeConfig.Burst = burst
 
 	return kubeConfig, nil
 }
