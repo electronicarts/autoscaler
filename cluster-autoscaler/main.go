@@ -65,6 +65,8 @@ var (
 	nodeGroupsFlag         MultiStringFlag
 	address                = flag.String("address", ":8085", "The address to expose prometheus metrics.")
 	kubernetes             = flag.String("kubernetes", "", "Kubernetes master location. Leave blank for default")
+	maxQPS                 = flag.Int("max-qps", 0, "The maximum QPS to the master from this client")
+	burst                  = flag.Int("burst", 0, "Maximum burst for throttle")
 	cloudConfig            = flag.String("cloud-config", "", "The path to the cloud provider configuration file.  Empty string for no configuration file.")
 	configMapName          = flag.String("configmap", "", "The name of the ConfigMap containing settings used for dynamic reconfiguration. Empty string for no ConfigMap.")
 	namespace              = flag.String("namespace", "kube-system", "Namespace in which cluster-autoscaler run. If a --configmap flag is also provided, ensure that the configmap exists in this namespace before CA runs.")
@@ -145,7 +147,9 @@ func createKubeClient() kube_client.Interface {
 		glog.Fatalf("Failed to parse Kubernetes url: %v", err)
 	}
 
-	kubeConfig, err := config.GetKubeClientConfig(url)
+	kubeConfig, err := config.GetKubeClientConfig(url, *maxQPS, *burst)
+	glog.Infof("Using QPS settings kube-api-qps=%f, kube-api-burst=%d", kubeConfig.QPS, kubeConfig.Burst)
+
 	if err != nil {
 		glog.Fatalf("Failed to build Kubernetes client configuration: %v", err)
 	}
