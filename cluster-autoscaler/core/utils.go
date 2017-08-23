@@ -327,6 +327,11 @@ func removeOldUnregisteredNodes(unregisteredNodes []clusterstate.UnregisteredNod
 				return removedAny, err
 			}
 			removedAny = true
+		} else {
+			unregisteredTime := currentTime.Sub(unregisteredNode.UnregisteredSince)
+			unregisteredTimeRemaining := unregisteredNode.UnregisteredSince.Add(context.UnregisteredNodeRemovalTime).Sub(currentTime)
+			glog.V(4).Infof("Node %s has been unregistered for %fs, has %fs remaining until termination",
+				unregisteredNode.Node.Name, unregisteredTime.Seconds(), unregisteredTimeRemaining.Seconds())
 		}
 	}
 	return removedAny, nil
