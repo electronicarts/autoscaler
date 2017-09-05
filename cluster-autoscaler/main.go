@@ -300,7 +300,7 @@ func main() {
 		lock, err := resourcelock.New(
 			leaderElection.ResourceLock,
 			*namespace,
-			"cluster-autoscaler",
+			lockName,
 			kubeClient.CoreV1(),
 			resourcelock.ResourceLockConfig{
 				Identity:      id,
