@@ -156,7 +156,7 @@ func TestRemoveOldUnregisteredNodes(t *testing.T) {
 	provider.AddNode("ng1", ng1_2)
 
 	fakeClient := &fake.Clientset{}
-	fakeLogRecorder, _ := utils.NewStatusMapRecorder(fakeClient, "kube-system", kube_record.NewFakeRecorder(5), false)
+	fakeLogRecorder, _ := utils.NewStatusMapRecorder(fakeClient, "kube-system", "", kube_record.NewFakeRecorder(5), false)
 	clusterState := clusterstate.NewClusterStateRegistry(provider, clusterstate.ClusterStateRegistryConfig{
 		MaxTotalUnreadyPercentage: 10,
 		OkTotalUnreadyCount:       1,
@@ -235,7 +235,7 @@ func TestRemoveFixNodeTargetSize(t *testing.T) {
 	provider.AddNode("ng1", ng1_1)
 
 	fakeClient := &fake.Clientset{}
-	fakeLogRecorder, _ := utils.NewStatusMapRecorder(fakeClient, "kube-system", kube_record.NewFakeRecorder(5), false)
+	fakeLogRecorder, _ := utils.NewStatusMapRecorder(fakeClient, "kube-system", "", kube_record.NewFakeRecorder(5), false)
 	clusterState := clusterstate.NewClusterStateRegistry(provider, clusterstate.ClusterStateRegistryConfig{
 		MaxTotalUnreadyPercentage: 10,
 		OkTotalUnreadyCount:       1,
