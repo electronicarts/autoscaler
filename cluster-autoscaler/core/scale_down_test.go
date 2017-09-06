@@ -157,7 +157,7 @@ func TestFindUnneededMaxCandidates(t *testing.T) {
 
 	fakeClient := &fake.Clientset{}
 	fakeRecorder := kube_util.CreateEventRecorder(fakeClient)
-	fakeLogRecorder, _ := utils.NewStatusMapRecorder(fakeClient, "kube-system", fakeRecorder, false)
+	fakeLogRecorder, _ := utils.NewStatusMapRecorder(fakeClient, "kube-system", "", fakeRecorder, false)
 
 	numCandidates := 30
 
@@ -458,7 +458,7 @@ func TestScaleDownEmptyMultipleNodeGroups(t *testing.T) {
 	assert.NotNil(t, provider)
 
 	fakeRecorder := kube_util.CreateEventRecorder(fakeClient)
-	fakeLogRecorder, _ := utils.NewStatusMapRecorder(fakeClient, "kube-system", fakeRecorder, false)
+	fakeLogRecorder, _ := utils.NewStatusMapRecorder(fakeClient, "kube-system", "", fakeRecorder, false)
 	context := &AutoscalingContext{
 		AutoscalingOptions: AutoscalingOptions{
 			ScaleDownUtilizationThreshold: 0.5,
